@@ -44,16 +44,23 @@ if (SpeechRecognition) {
 
             if (textoCompletoAtual.toLowerCase().includes('vox apague o texto')) {
                 textoAcumulado = '';
+                areaTexto.value = '';
                 areaTexto.innerText = '';
+                areaTexto.innerHTML = '';
                 statusText.innerText = '🧹 Texto apagado via comando de voz!';
                 return;
             }
 
-            areaTexto.innerText = textoCompletoAtual;
+            // Atualiza o campo tratando as variações de elementos do DOM
+            if (areaTexto.value !== undefined) {
+                areaTexto.value = textoCompletoAtual;
+            } else {
+                areaTexto.innerText = textoCompletoAtual;
+            }
         };
 
         recognition.onerror = (event) => {
-            console.error('Erro de reconhecimento: ', event.error);
+            console.error('Erro na captura do áudio: ', event.error);
         };
 
         recognition.onend = () => {
@@ -66,11 +73,11 @@ if (SpeechRecognition) {
 
     btnGravar.addEventListener('click', () => {
         if (gravando) {
-            statusText.innerText = '🧠 Enviando ao back-end para processamento de NLP cognitivo...';
+            statusText.innerText = '🧠 Processando NLP e análise semântica estruturada...';
             recognition.stop();
             
             setTimeout(async () => {
-                const textoParaProcessar = areaTexto.innerText.trim();
+                const textoParaProcessar = (areaTexto.value || areaTexto.innerText || '').trim();
                 if (textoParaProcessar !== '') {
                     await chamarServidorNLP(textoParaProcessar);
                 } else {
@@ -79,8 +86,11 @@ if (SpeechRecognition) {
             }, 400);
 
         } else {
+            // FIX: Limpeza absoluta de todas as propriedades do campo para reiniciar do zero
             textoAcumulado = ''; 
+            areaTexto.value = '';
             areaTexto.innerText = '';
+            areaTexto.innerHTML = '';
             
             recognition = new SpeechRecognition();
             configurarRecognition();
@@ -88,7 +98,7 @@ if (SpeechRecognition) {
             try {
                 recognition.start();
             } catch (e) {
-                console.warn(e);
+                console.warn("Gerenciamento de concorrência de áudio ativo:", e);
             }
         }
     });
@@ -106,82 +116,28 @@ if (SpeechRecognition) {
             const data = await response.json();
             
             if (data.resultado) {
-                areaTexto.innerText = data.resultado;
-                statusText.innerText = '✅ NLP concluído via servidor dedicado! Traduzindo para LIBRAS...';
+                // Injeta o texto estruturado e pontuado de volta no campo
+                if (areaTexto.value !== undefined) {
+                    areaTexto.value = data.resultado;
+                } else {
+                    areaTexto.innerText = data.resultado;
+                }
+                
+                statusText.innerText = '✅ NLP concluído com sucesso! Traduzindo para LIBRAS...';
                 forcarTraducaoVlibras();
             } else {
-                throw new Error('Resposta sem dados.');
+                throw new Error('Resposta sem payload de dados.');
             }
 
         } catch (error) {
-            console.warn('Servidor falhou. Ativando Motor de PLN Local de Emergência:', error);
-            statusText.innerText = '🧠 Processando pontuação através das regras gramaticais locais...';
-
-            // 🛡️ MOTOR DE PLN DE EMERGÊNCIA (Baseado nos conceitos de POS Tagging e Regras de Vírgula)
-            let palavras = texto.trim().split(/\s+/);
-            let textoProcessadoLocal = "";
-            let fraseAtual = [];
-
-            const pronomesInterrogativos = ['como', 'onde', 'quem', 'qual', 'quais', 'por que', 'porque', 'quanto', 'quantos', 'o que', 'o quê', 'cadê', 'quando', 'será'];
-            const vocativosESaudacoes = ['olá', 'oi', 'bom dia', 'boa tarde', 'boa noite', 'nossa', 'uau'];
-            const adjuntosEConjuncoes = ['mas', 'porém', 'contudo', 'entretanto', 'pois', 'então', 'já que', 'ontem', 'hoje', 'agora'];
-
-            for (let i = 0; i < palavras.length; i++) {
-                let palavraAtual = palavras[i];
-                let palavraMinuscula = palavraAtual.toLowerCase();
-
-                if (fraseAtual.length === 0) {
-                    palavraAtual = palavraAtual.charAt(0).toUpperCase() + palavraAtual.slice(1);
-                }
-
-                // Isolar vocativos/chamamentos com vírgula
-                if (vocativosESaudacoes.includes(palavraMinuscula) && fraseAtual.length === 0 && i < palavras.length - 1) {
-                    palavraAtual += ",";
-                }
-
-                // Inserir vírgula antes de adjuntos ou conjunções
-                if (adjuntosEConjuncoes.includes(palavraMinuscula) && fraseAtual.length > 0) {
-                    let uIdx = fraseAtual.length - 1;
-                    if (!fraseAtual[uIdx].endsWith(',') && !fraseAtual[uIdx].endsWith('.') && !fraseAtual[uIdx].endsWith('?')) {
-                        fraseAtual[uIdx] += ",";
-                    }
-                }
-
-                fraseAtual.push(palavraAtual);
-
-                let proximaPalavra = palavras[i + 1] ? palavras[i + 1].toLowerCase() : null;
-                const marcadoresTransicao = ['está', 'esta', 'tudo', 'como', 'vai', 'você', 'vc', 'o', 'qual', 'quando', 'é', 'eu'];
-
-                // Analisa fim de frase/sintaxe
-                if (proximaPalavra && marcadoresTransicao.includes(proximaPalavra) && fraseAtual.length >= 2) {
-                    let subStr = fraseAtual.join(' ').toLowerCase();
-                    let ehPergunta = pronomesInterrogativos.some(t => subStr.includes(t)) || 
-                                     /\b(você|vc|está|esta|como|vai)\b/i.test(subStr);
-
-                    textoProcessadoLocal += fraseAtual.join(' ') + (ehPergunta ? "? " : ". ");
-                    fraseAtual = [];
-                }
-            }
-
-            if (fraseAtual.length > 0) {
-                let subStr = fraseAtual.join(' ').toLowerCase();
-                let ehPergunta = pronomesInterrogativos.some(t => subStr.includes(t)) || /\b(você|vc|está|esta|como|vai)\b/i.test(subStr);
-                textoProcessadoLocal += fraseAtual.join(' ') + (ehPergunta ? "?" : ".");
-            }
-
-            let resultadoFinal = textoProcessadoLocal.replace(/\s+/g, ' ').trim().replace(/\s+\?/g, '?').replace(/\s+\./g, '.');
-            resultadoFinal = resultadoFinal.replace(/(?:\?\s*|^)([a-z])/gi, (match, letra) => match.replace(letra, letra.toUpperCase()));
-
-            setTimeout(() => {
-                areaTexto.innerText = resultadoFinal;
-                statusText.innerText = '✅ Regras de pontuação aplicadas localmente! Traduzindo...';
-                forcarTraducaoVlibras();
-            }, 600);
+            console.error('Falha de gateway:', error);
+            statusText.innerText = '⚠️ Erro ao conectar com o servidor de NLP.';
         }
     }
 
     function forcarTraducaoVlibras() {
-        if (areaTexto.innerText.trim() !== '') {
+        const textoLimpio = (areaTexto.value || areaTexto.innerText || '').trim();
+        if (textoLimpio !== '') {
             const botaoVlibras = document.querySelector('[vw-access-button]');
             const janelaVlibras = document.querySelector('[vw-plugin-wrapper]');
             
@@ -189,16 +145,22 @@ if (SpeechRecognition) {
                 botaoVlibras.click();
             }
 
-            const range = document.createRange();
-            range.selectNodeContents(areaTexto);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
+            // Seleção universal de texto compatível com inputs, textareas e blocos de texto
+            if (typeof areaTexto.select === 'function') {
+                areaTexto.select();
+            } else {
+                const range = document.createRange();
+                range.selectNodeContents(areaTexto);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            }
             
+            // Dispara múltiplos gatilhos de eventos assincronamente para forçar a captura do VLibras
             setTimeout(() => {
-                const eventoMudar = new Event('change', { bubbles: true });
-                areaTexto.dispatchEvent(eventoMudar);
-            }, 500);
+                areaTexto.dispatchEvent(new Event('input', { bubbles: true }));
+                areaTexto.dispatchEvent(new Event('change', { bubbles: true }));
+            }, 400);
         }
     }
 
