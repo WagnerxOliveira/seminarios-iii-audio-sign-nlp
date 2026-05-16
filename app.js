@@ -1,4 +1,3 @@
-// APLICAÇÃO SEGURA: Só roda quando o HTML está 100% carregado
 document.addEventListener('DOMContentLoaded', () => {
     const btnGravar = document.getElementById('btn-gravar');
     const areaTexto = document.getElementById('texto-transcrito');
@@ -54,12 +53,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (textoCompletoAtual.toLowerCase().includes('vox apague o texto')) {
                 textoAcumulado = '';
-                areaTexto.value = '';
+                areaTexto.innerText = '';
                 statusText.innerText = '🧹 Texto apagado via comando de voz!';
                 return;
             }
 
-            areaTexto.value = textoCompletoAtual;
+            areaTexto.innerText = textoCompletoAtual;
         };
 
         recognition.onerror = (event) => {
@@ -96,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText.innerText = '🧠 Processando pontuação inteligente...';
 
             setTimeout(async () => {
-                const textoParaProcessar = areaTexto.value.trim();
+                const textoParaProcessar = areaTexto.innerText.trim();
                 if (textoParaProcessar !== '') {
                     await orquestradorDeNLP(textoParaProcessar);
                 } else {
@@ -105,7 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 300);
         } else {
             textoAcumulado = '';
-            areaTexto.value = '';
+            areaTexto.innerText = '';
             try {
                 recognition.start();
             } catch (e) {
@@ -148,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        areaTexto.value = textoProcessado;
+        areaTexto.innerText = textoProcessado;
         forcarTraducaoVlibras();
     }
 
@@ -165,14 +164,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function forcarTraducaoVlibras() {
-        if (areaTexto.value.trim() !== '') {
+        const textoFinal = areaTexto.innerText.trim();
+        if (textoFinal !== '') {
             const botaoVlibras = document.querySelector('[vw-access-button]');
-            if (botaoVlibras) botaoVlibras.click();
-            areaTexto.select();
+            const wrapperVlibras = document.querySelector('[vw-plugin-wrapper]');
+            
+            if (botaoVlibras && wrapperVlibras) {
+                if (!wrapperVlibras.classList.contains('active')) {
+                    botaoVlibras.click(); 
+                }
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(areaTexto);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
             setTimeout(() => {
-                areaTexto.dispatchEvent(new Event('input', { bubbles: true }));
-                areaTexto.dispatchEvent(new Event('change', { bubbles: true }));
-            }, 400);
+                areaTexto.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, view: window }));
+            }, 500);
         }
     }
 });

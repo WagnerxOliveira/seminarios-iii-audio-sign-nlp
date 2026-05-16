@@ -1,4 +1,3 @@
-// 🛠️ BACK-END SERVERLESS (api/processar.js) - Processamento de NLP Nativo
 module.exports = async function handler(request, response) {
     // Configuração estrita de cabeçalhos CORS para comunicação com o front-end
     response.setHeader('Access-Control-Allow-Credentials', true);
@@ -20,11 +19,10 @@ module.exports = async function handler(request, response) {
         return response.status(400).json({ error: 'Texto de transcrição não fornecido.' });
     }
 
-    // 🔑 CHAVE DE API DO GEMINI
+    // CHAVE DE API DO GEMINI
     const GEMINI_API_KEY = 'AIzaSyCrh8elS1iSIrdJyoYDBMmvUhKUoq7dMLQ';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
 
-    // Prompt especialista focado em análise sintática, semântica e tokenização estruturada
     const promptEspecialista = `Aja como um revisor gramatical especialista em Processamento de Linguagem Natural e análise léxica da Língua Portuguesa. 
 Analise cuidadosamente a estrutura sintática, as conjunções e a semântica da seguinte transcrição de áudio contínua e reescreva-a aplicando as regras gramaticais perfeitas:
 
