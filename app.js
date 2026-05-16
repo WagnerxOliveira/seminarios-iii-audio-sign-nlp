@@ -2,9 +2,6 @@ const btnGravar = document.getElementById('btn-gravar');
 const areaTexto = document.getElementById('texto-transcrito');
 const statusText = document.getElementById('status-gravacao');
 
-// 🔑 CHAVE DE API DO GEMINI
-const GEMINI_API_KEY = 'AIzaSyCrh8elS1iSIrdJyoYDBMmvUhKUoq7dMLQ'; 
-
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (SpeechRecognition) {
@@ -45,7 +42,6 @@ if (SpeechRecognition) {
 
             let textoCompletoAtual = (textoAcumulado + ' ' + transcricaoIntermediaria).trim();
 
-            // 🧹 COMANDO DE VOZ DETECTADO: "Vox, apague o texto"
             if (textoCompletoAtual.toLowerCase().includes('vox apague o texto')) {
                 textoAcumulado = '';
                 areaTexto.innerText = '';
@@ -58,9 +54,6 @@ if (SpeechRecognition) {
 
         recognition.onerror = (event) => {
             console.error('Erro de reconhecimento: ', event.error);
-            if (event.error === 'not-allowed') {
-                statusText.innerText = 'Permissão de microfone negada.';
-            }
         };
 
         recognition.onend = () => {
@@ -71,98 +64,82 @@ if (SpeechRecognition) {
         };
     }
 
-    // ⚡ LÓGICA INTELIGENTE DO BOTÃO: Limpa, reseta a instância e reinicia sem travar
-    btnGravar.addEventListener('click', async () => {
+    btnGravar.addEventListener('click', () => {
         if (gravando) {
-            statusText.innerText = '🧠 Processando NLP e análise semântica estruturada...';
+            statusText.innerText = '🧠 Enviando ao back-end para processamento de NLP cognitivo...';
             recognition.stop();
             
-            // Aguarda uma fração de segundo para o microfone fechar antes de processar a IA
             setTimeout(async () => {
                 const textoParaProcessar = areaTexto.innerText.trim();
                 if (textoParaProcessar !== '') {
-                    await processarTextoComIA(textoParaProcessar);
+                    await chamarServidorNLP(textoParaProcessar);
                 } else {
-                    statusText.innerText = 'Microfone desligado. Nenhum texto capturado.';
+                    statusText.innerText = 'Microfone desligado. Nenhum áudio capturado.';
                 }
             }, 400);
 
         } else {
-            // FIX DO BUG: Reseta o acumulador e apaga o que está escrito na tela na mesma hora
             textoAcumulado = ''; 
             areaTexto.innerText = '';
             
-            // Recria a instância para limpar buffers travados do navegador
             recognition = new SpeechRecognition();
             configurarRecognition();
             
             try {
                 recognition.start();
             } catch (e) {
-                console.warn("Tentativa de reinício rápido contornada: ", e);
+                console.warn(e);
             }
         }
     });
 
-    // 🚀 ENGINE DE PROCESSAMENTO DE LINGUAGEM NATURAL (NLP)
-    async function processarTextoComIA(texto) {
-        const urlOriginal = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const urlProxy = 'https://corsproxy.io/?' + encodeURIComponent(urlOriginal);
-        
-        // Prompt especialista estruturado baseado na teoria de PLN e regras gramaticais fornecidas
-        const promptEspecialista = `Aja como um revisor gramatical especialista em Processamento de Linguagem Natural. Analise a semântica e sintaxe do texto de transcrição abaixo.
-Aplique estritamente as regras de pontuação da Língua Portuguesa:
-1. SINAIS DE FIM: Identifique orações interrogativas diretas e use ponto de interrogação (?). Use ponto final (.) para declarações concluídas.
-2. REGRAS DA VÍRGULA: Isole vocativos (chamamentos) e apostos (explicações). Separe adjuntos adverbiais deslocados. NUNCA separe o sujeito do predicado por vírgula.
-Mantenha o vocabulário original integralmente. Não adicione notas, explicações ou aspas. Retorne apenas o texto corrigido.
-
-Texto: "${texto}"`;
-
+    async function chamarServidorNLP(texto) {
         try {
-            const response = await fetch(urlProxy, {
+            const response = await fetch('/api/processar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: promptEspecialista }] }] })
+                body: JSON.stringify({ texto: texto })
             });
 
-            if (!response.ok) throw new Error('CORS ou restrição de API pública ativa.');
+            if (!response.ok) throw new Error('Erro na resposta do back-end serverless.');
 
             const data = await response.json();
-            const textoProcessado = data.candidates[0].content.parts[0].text.trim();
             
-            areaTexto.innerText = textoProcessado;
-            statusText.innerText = '✅ NLP concluído via Inteligência Artificial! Traduzindo...';
-            forcarTraducaoVlibras();
+            if (data.resultado) {
+                areaTexto.innerText = data.resultado;
+                statusText.innerText = '✅ NLP concluído via servidor dedicado! Traduzindo para LIBRAS...';
+                forcarTraducaoVlibras();
+            } else {
+                throw new Error('Resposta sem dados.');
+            }
 
         } catch (error) {
-            console.warn('Executando Motor de PLN Heurístico Local baseado em POS-Tagging:', error);
+            console.warn('Servidor falhou. Ativando Motor de PLN Local de Emergência:', error);
             statusText.innerText = '🧠 Processando pontuação através das regras gramaticais locais...';
 
-            // 🛠️ MOTOR DE PLN LOCAL REFORÇADO (Análise de Camadas Gramaticais)
+            // 🛡️ MOTOR DE PLN DE EMERGÊNCIA (Baseado nos conceitos de POS Tagging e Regras de Vírgula)
             let palavras = texto.trim().split(/\s+/);
             let textoProcessadoLocal = "";
             let fraseAtual = [];
 
-            // Tokenização e Classificação de Palavras (Heurística POS Tagging)
             const pronomesInterrogativos = ['como', 'onde', 'quem', 'qual', 'quais', 'por que', 'porque', 'quanto', 'quantos', 'o que', 'o quê', 'cadê', 'quando', 'será'];
             const vocativosESaudacoes = ['olá', 'oi', 'bom dia', 'boa tarde', 'boa noite', 'nossa', 'uau'];
-            const adjuntosEConjuncoes = ['mas', 'porém', 'contudo', 'entretanto', 'pois', 'então', 'porque', 'já que', 'ontem', 'hoje', 'agora'];
+            const adjuntosEConjuncoes = ['mas', 'porém', 'contudo', 'entretanto', 'pois', 'então', 'já que', 'ontem', 'hoje', 'agora'];
 
             for (let i = 0; i < palavras.length; i++) {
                 let palavraAtual = palavras[i];
                 let palavraMinuscula = palavraAtual.toLowerCase();
 
-                // Capitalização de início de frase (Transformers-like)
                 if (fraseAtual.length === 0) {
                     palavraAtual = palavraAtual.charAt(0).toUpperCase() + palavraAtual.slice(1);
                 }
 
-                // Regra do Vocativo / Saudação: Isolar por vírgula
+                // Isolar vocativos/chamamentos com vírgula
                 if (vocativosESaudacoes.includes(palavraMinuscula) && fraseAtual.length === 0 && i < palavras.length - 1) {
                     palavraAtual += ",";
                 }
 
-                // Regra das Conjunções/Adjuntos Deslocados: Adicionar pausa intermediária antes do termo
+                // Inserir vírgula antes de adjuntos ou conjunções
                 if (adjuntosEConjuncoes.includes(palavraMinuscula) && fraseAtual.length > 0) {
                     let uIdx = fraseAtual.length - 1;
                     if (!fraseAtual[uIdx].endsWith(',') && !fraseAtual[uIdx].endsWith('.') && !fraseAtual[uIdx].endsWith('?')) {
@@ -172,41 +149,32 @@ Texto: "${texto}"`;
 
                 fraseAtual.push(palavraAtual);
 
-                // Análise de Encerramento de Bloco Sintático (Verifica se a próxima palavra exige quebra de oração)
                 let proximaPalavra = palavras[i + 1] ? palavras[i + 1].toLowerCase() : null;
                 const marcadoresTransicao = ['está', 'esta', 'tudo', 'como', 'vai', 'você', 'vc', 'o', 'qual', 'quando', 'é', 'eu'];
 
+                // Analisa fim de frase/sintaxe
                 if (proximaPalavra && marcadoresTransicao.includes(proximaPalavra) && fraseAtual.length >= 2) {
                     let subStr = fraseAtual.join(' ').toLowerCase();
                     let ehPergunta = pronomesInterrogativos.some(t => subStr.includes(t)) || 
                                      /\b(você|vc|está|esta|como|vai)\b/i.test(subStr);
 
-                    if (ehPergunta) {
-                        textoProcessadoLocal += fraseAtual.join(' ') + "? ";
-                    } else {
-                        textoProcessadoLocal += fraseAtual.join(' ') + ". ";
-                    }
-                    fraseAtual = []; // Reseta o buffer da frase atual
+                    textoProcessadoLocal += fraseAtual.join(' ') + (ehPergunta ? "? " : ". ");
+                    fraseAtual = [];
                 }
             }
 
-            // Limpeza e processamento do bloco final que restou
             if (fraseAtual.length > 0) {
                 let subStr = fraseAtual.join(' ').toLowerCase();
                 let ehPergunta = pronomesInterrogativos.some(t => subStr.includes(t)) || /\b(você|vc|está|esta|como|vai)\b/i.test(subStr);
                 textoProcessadoLocal += fraseAtual.join(' ') + (ehPergunta ? "?" : ".");
             }
 
-            // Normalização de Strings, espaçamentos e acertos de siglas
-            let resultadoFinal = textoProcessadoLocal.replace(/\s+/g, ' ').trim();
-            resultadoFinal = resultadoFinal.replace(/puc minas/gi, 'PUC Minas').replace(/\s+\?/g, '?').replace(/\s+\./g, '.');
-
-            // Força a capitalização pós-pontuação no fallback local
+            let resultadoFinal = textoProcessadoLocal.replace(/\s+/g, ' ').trim().replace(/\s+\?/g, '?').replace(/\s+\./g, '.');
             resultadoFinal = resultadoFinal.replace(/(?:\?\s*|^)([a-z])/gi, (match, letra) => match.replace(letra, letra.toUpperCase()));
 
             setTimeout(() => {
                 areaTexto.innerText = resultadoFinal;
-                statusText.innerText = '✅ Análise sintática e regras de pontuação aplicadas localmente! Traduzindo...';
+                statusText.innerText = '✅ Regras de pontuação aplicadas localmente! Traduzindo...';
                 forcarTraducaoVlibras();
             }, 600);
         }
