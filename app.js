@@ -2,6 +2,9 @@ const btnGravar = document.getElementById('btn-gravar');
 const areaTexto = document.getElementById('texto-transcrito');
 const statusText = document.getElementById('status-gravacao');
 
+// 🔑 CHAVE DA INTELIGÊNCIA ARTIFICIAL
+const GEMINI_API_KEY = 'AIzaSyCrh8elS1iSIrdJyoYDBMmvUhKUoq7dMLQ';
+
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (SpeechRecognition) {
@@ -10,6 +13,7 @@ if (SpeechRecognition) {
 
     let gravando = false;
     let textoAcumulado = ''; 
+    let ignorarResultados = false; // Trava para impedir que o áudio antigo volte para a tela
 
     function configurarRecognition() {
         recognition.continuous = true;
@@ -18,6 +22,7 @@ if (SpeechRecognition) {
 
         recognition.onstart = () => {
             gravando = true;
+            ignorarResultados = false;
             btnGravar.classList.remove('btn-danger');
             btnGravar.classList.add('btn-success');
             btnGravar.innerHTML = '🛑 Parar Gravação';
@@ -25,6 +30,8 @@ if (SpeechRecognition) {
         };
 
         recognition.onresult = (event) => {
+            if (ignorarResultados) return; // Se parou de gravar, ignora ecos do microfone
+
             let transcricaoIntermediaria = '';
             let transcricaoFinalDoBloco = '';
 
@@ -42,25 +49,18 @@ if (SpeechRecognition) {
 
             let textoCompletoAtual = (textoAcumulado + ' ' + transcricaoIntermediaria).trim();
 
+            // Comando de voz para limpar
             if (textoCompletoAtual.toLowerCase().includes('vox apague o texto')) {
-                textoAcumulado = '';
-                areaTexto.value = '';
-                areaTexto.innerText = '';
-                areaTexto.innerHTML = '';
+                limparTelaETexto();
                 statusText.innerText = '🧹 Texto apagado via comando de voz!';
                 return;
             }
 
-            // Atualiza o campo tratando as variações de elementos do DOM
-            if (areaTexto.value !== undefined) {
-                areaTexto.value = textoCompletoAtual;
-            } else {
-                areaTexto.innerText = textoCompletoAtual;
-            }
+            atualizarTela(textoCompletoAtual);
         };
 
         recognition.onerror = (event) => {
-            console.error('Erro na captura do áudio: ', event.error);
+            console.error('Erro no microfone: ', event.error);
         };
 
         recognition.onend = () => {
@@ -71,26 +71,40 @@ if (SpeechRecognition) {
         };
     }
 
+    function atualizarTela(texto) {
+        if (areaTexto.value !== undefined) {
+            areaTexto.value = texto;
+        } else {
+            areaTexto.innerText = texto;
+        }
+    }
+
+    function limparTelaETexto() {
+        textoAcumulado = ''; 
+        if (areaTexto.value !== undefined) areaTexto.value = '';
+        areaTexto.innerText = '';
+        areaTexto.innerHTML = '';
+    }
+
+    // ⚡ LÓGICA BLINDADA DO BOTÃO GRAVAR/PARAR
     btnGravar.addEventListener('click', () => {
         if (gravando) {
-            statusText.innerText = '🧠 Processando NLP e análise semântica estruturada...';
+            ignorarResultados = true; // Corta a escuta imediatamente
             recognition.stop();
+            statusText.innerText = '🧠 Processando Inteligência Artificial e regras de Português...';
             
             setTimeout(async () => {
                 const textoParaProcessar = (areaTexto.value || areaTexto.innerText || '').trim();
                 if (textoParaProcessar !== '') {
-                    await chamarServidorNLP(textoParaProcessar);
+                    await orquestradorDeNLP(textoParaProcessar);
                 } else {
                     statusText.innerText = 'Microfone desligado. Nenhum áudio capturado.';
                 }
-            }, 400);
+            }, 300);
 
         } else {
-            // FIX: Limpeza absoluta de todas as propriedades do campo para reiniciar do zero
-            textoAcumulado = ''; 
-            areaTexto.value = '';
-            areaTexto.innerText = '';
-            areaTexto.innerHTML = '';
+            // Limpa a tela imediatamente ao começar a gravar de novo
+            limparTelaETexto();
             
             recognition = new SpeechRecognition();
             configurarRecognition();
@@ -98,41 +112,86 @@ if (SpeechRecognition) {
             try {
                 recognition.start();
             } catch (e) {
-                console.warn("Gerenciamento de concorrência de áudio ativo:", e);
+                console.warn(e);
             }
         }
     });
 
-    async function chamarServidorNLP(texto) {
+    // 🚀 ORQUESTRADOR DE TRIPLA REDUNDÂNCIA (Garante que nunca vai dar erro)
+    async function orquestradorDeNLP(texto) {
+        let textoProcessado = "";
+
+        // TENTATIVA 1: Tenta usar o Back-end da Vercel (Se estiver online)
         try {
-            const response = await fetch('/api/processar', {
+            const res = await fetch('/api/processar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ texto: texto })
             });
-
-            if (!response.ok) throw new Error('Erro na resposta do back-end serverless.');
-
-            const data = await response.json();
-            
-            if (data.resultado) {
-                // Injeta o texto estruturado e pontuado de volta no campo
-                if (areaTexto.value !== undefined) {
-                    areaTexto.value = data.resultado;
-                } else {
-                    areaTexto.innerText = data.resultado;
-                }
-                
-                statusText.innerText = '✅ NLP concluído com sucesso! Traduzindo para LIBRAS...';
-                forcarTraducaoVlibras();
+            if (res.ok) {
+                const data = await res.json();
+                textoProcessado = data.resultado;
+                statusText.innerText = '✅ NLP concluído via Servidor! Traduzindo...';
             } else {
-                throw new Error('Resposta sem payload de dados.');
+                throw new Error("Back-end Vercel indisponível");
             }
+        } catch (erroBackend) {
+            
+            // TENTATIVA 2: Tenta usar a API do Google direto pelo navegador (Funciona localmente)
+            try {
+                console.warn("Servidor Vercel ausente (Testando local?). Chamando Google API direta...");
+                
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+                const prompt = `Aja como um revisor gramatical especialista em Processamento de Linguagem Natural da Língua Portuguesa. 
+Analise a semântica da transcrição de áudio abaixo e reescreva-a aplicando as regras:
+1. SINAIS: Diferencie frases declarativas (ponto final) de frases interrogativas diretas (ponto de interrogação), analisando o contexto de dúvida e pronomes (quem, onde, como, qual).
+2. VÍRGULAS: Isole vocativos (chamamentos), apostos e adjuntos adverbiais deslocados. NUNCA separe o sujeito do predicado.
+3. MAIÚSCULAS: Inicie todas as frases com letra maiúscula.
+Retorne APENAS o texto corrigido, sem explicações.
 
-        } catch (error) {
-            console.error('Falha de gateway:', error);
-            statusText.innerText = '⚠️ Erro ao conectar com o servidor de NLP.';
+Texto: "${texto}"`;
+
+                const resGoogle = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                if (resGoogle.ok) {
+                    const dataGoogle = await resGoogle.json();
+                    textoProcessado = dataGoogle.candidates[0].content.parts[0].text.trim();
+                    statusText.innerText = '✅ NLP concluído via Inteligência Artificial! Traduzindo...';
+                } else {
+                    throw new Error("API do Google bloqueada ou fora do ar.");
+                }
+
+            } catch (erroGoogle) {
+                // TENTATIVA 3: Motor de Regras Gramaticais Offline (Prova de falhas)
+                console.warn("Inteligência Artificial inacessível. Usando Regras Gramaticais Offline...");
+                textoProcessado = aplicarRegrasOffline(texto);
+                statusText.innerText = '✅ NLP Concluído via Regras Locais! Traduzindo...';
+            }
         }
+
+        // Coloca o texto perfeito na tela e chama o VLibras
+        atualizarTela(textoProcessado);
+        forcarTraducaoVlibras();
+    }
+
+    // 🛡️ MOTOR DE REGRAS GRAMATICAIS OFFLINE (Plano C)
+    function aplicarRegrasOffline(t) {
+        let texto = t.trim().toLowerCase();
+        texto = texto.replace(/\b(olá|oi|bom dia|boa tarde|boa noite|nossa)\b\s+/g, "$1, ");
+        texto = texto.replace(/\s+\b(mas|porém|entretanto|pois|então|porque)\b/g, ", $1");
+        
+        const perguntas = [/(como\s+você\s+está|tudo\s+bem(\s+com\s+você)?|como\s+vai(\s+você)?)/g, /((quem|onde|quando|qual|quais|por\s+que|o\s+que)\b.*?)(?=\s+(?:e|mas|ou)|$)/g, /(está\s+(estudando|fazendo|indo|bem))/g];
+        perguntas.forEach(p => texto = texto.replace(p, match => match.trim() + "? "));
+        
+        texto = texto.replace(/\s+/g, ' ').trim();
+        if (!texto.endsWith('?')) texto += '.';
+        texto = texto.replace(/\s+\?/g, '?').replace(/\s+\./g, '.').replace(/,\s*\?/g, '?');
+        
+        return texto.replace(/(?:^|[.?]\s*)([a-zçáéíóúâêôãõ])/g, m => m.toUpperCase());
     }
 
     function forcarTraducaoVlibras() {
@@ -145,10 +204,8 @@ if (SpeechRecognition) {
                 botaoVlibras.click();
             }
 
-            // Seleção universal de texto compatível com inputs, textareas e blocos de texto
-            if (typeof areaTexto.select === 'function') {
-                areaTexto.select();
-            } else {
+            if (typeof areaTexto.select === 'function') areaTexto.select();
+            else {
                 const range = document.createRange();
                 range.selectNodeContents(areaTexto);
                 const selection = window.getSelection();
@@ -156,7 +213,6 @@ if (SpeechRecognition) {
                 selection.addRange(range);
             }
             
-            // Dispara múltiplos gatilhos de eventos assincronamente para forçar a captura do VLibras
             setTimeout(() => {
                 areaTexto.dispatchEvent(new Event('input', { bubbles: true }));
                 areaTexto.dispatchEvent(new Event('change', { bubbles: true }));
