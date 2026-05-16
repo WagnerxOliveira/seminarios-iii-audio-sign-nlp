@@ -8,13 +8,14 @@ const GEMINI_API_KEY = 'AIzaSyCrh8elS1iSIrdJyoYDBMmvUhKUoq7dMLQ';
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (SpeechRecognition) {
-    const recognition = new Recognition();
+    // 🛠️ CORREÇÃO DAQUI: Usa a variável correta mapeada acima
+    const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'pt-BR';
 
     let gravando = false;
-    let textoAcumulado = ''; // Mantém todo o histórico falado para não apagar nada
+    let textoAcumulado = ''; // Mantém todo o histórico falado para não apagar nada ao pausar
 
     recognition.onstart = () => {
         gravando = true;
@@ -36,12 +37,11 @@ if (SpeechRecognition) {
             }
         }
 
-        // Se o navegador fechou um bloco de fala, acumulamos ele permanentemente
+        // Se o navegador fechou um bloco de fala, acumulamos ele sem limpar a tela
         if (transcricaoFinalDoBloco !== '') {
             textoAcumulado += ' ' + transcricaoFinalDoBloco;
         }
 
-        // O texto que vai para a tela é tudo o que já acumulamos + o que você está falando agora
         let textoCompletoAtual = (textoAcumulado + ' ' + transcricaoIntermediaria).trim();
 
         // 🧠 COMANDO DE VOZ DETECTADO: "Vox, apague o texto"
@@ -68,7 +68,6 @@ if (SpeechRecognition) {
         btnGravar.classList.add('btn-danger');
         btnGravar.innerHTML = '🎤 Iniciar Gravação';
         
-        // Garante que pega o texto final real da tela
         const textoParaProcessar = areaTexto.innerText.trim();
 
         if (textoParaProcessar !== '') {
@@ -83,7 +82,7 @@ if (SpeechRecognition) {
         if (gravando) {
             recognition.stop();
         } else {
-            textoAcumulado = ''; // Limpa o acumulador para uma nova gravação do zero
+            textoAcumulado = ''; 
             areaTexto.innerText = '';
             recognition.start();
         }
@@ -114,27 +113,27 @@ if (SpeechRecognition) {
             console.warn('Executando Motor Léxico Local Avançado:', error);
             statusText.innerText = '🧠 Processando pontuação através do motor gramatical local...';
 
-            // 🛠️ MOTOR DE CONTINGÊNCIA GRAMATICAL COMPORTAMENTAL
             let t = texto.trim();
 
-            // Ajustes de Expressões Regulares para fatiar as perguntas comuns no meio do áudio continuo
-            t = t.replace(/\b(olá|oi|bom dia|boa tarde)\b\s*(como você está|tudo bem)?/gi, 'Olá, como você está? ');
-            t = t.replace(/\b(está tudo bem com você|ta tudo bem com voce)\b/gi, 'Está tudo bem com você?');
+            // 🛠️ MOTOR DE CONTINGÊNCIA LÉXICA REFINADO E MAPEADO PASSO A PASSO
+            t = t.replace(/\b(olá como você está|ola como voce esta|olá como vc está)\b/gi, 'Olá, como você está?');
+            t = t.replace(/\b(está tudo bem com você|está tudo bem com voce|esta tudo bem com voce|está tudo bem)\b/gi, 'Está tudo bem com você?');
             t = t.replace(/\b(como vai você|como vai vc|como vai)\b/gi, 'Como vai?');
             t = t.replace(/\b(está estudando|esta estudando)\b/gi, 'Está estudando?');
             t = t.replace(/\b(o que você gosta de estudar|o que vc gosta de estudar)\b/gi, 'O que você gosta de estudar?');
 
-            // Garante espaçamento limpo e capitalização de frases seguidas
+            // Garante espaçamento limpo entre as interrogações e quebras de frase
             t = t.replace(/\s+/g, ' ').trim();
+            
+            // Força letra maiúscula após cada ponto de interrogação ou ponto final
             t = t.replace(/(?:\?\s*|^)([a-z])/gi, (match, letra) => match.replace(letra, letra.toUpperCase()));
             
-            // Se a frase inteira não terminou com pontuação por algum motivo, põe uma interrogação geral
+            // Tratamento final de segurança para limpar espaçamentos antes dos pontos ?
+            t = t.replace(/\s+\?/g, '?').replace(/\?+/g, '?');
+
             if (!t.endsWith('?') && !t.endsWith('.')) {
                 t += '?';
             }
-
-            // Remove interrogações duplicadas coladas (ex: ?? para ?)
-            t = t.replace(/\?+/g, '?').replace(/\s+\?/g, '?');
 
             setTimeout(() => {
                 areaTexto.innerText = t;
