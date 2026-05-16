@@ -1,3 +1,4 @@
+// Captura dos elementos da nova interface
 const btnGravar = document.getElementById('btn-gravar');
 const areaTexto = document.getElementById('texto-transcrito');
 const statusText = document.getElementById('status-gravacao');
@@ -13,7 +14,7 @@ if (SpeechRecognition) {
 
     let gravando = false;
     let textoAcumulado = ''; 
-    let ignorarResultados = false; // Trava para impedir que o áudio antigo volte para a tela
+    let ignorarResultados = false; // Trava contra "ecos" ao parar a gravação
 
     function configurarRecognition() {
         recognition.continuous = true;
@@ -30,7 +31,7 @@ if (SpeechRecognition) {
         };
 
         recognition.onresult = (event) => {
-            if (ignorarResultados) return; // Se parou de gravar, ignora ecos do microfone
+            if (ignorarResultados) return;
 
             let transcricaoIntermediaria = '';
             let transcricaoFinalDoBloco = '';
@@ -49,14 +50,14 @@ if (SpeechRecognition) {
 
             let textoCompletoAtual = (textoAcumulado + ' ' + transcricaoIntermediaria).trim();
 
-            // Comando de voz para limpar
+            // 🧹 Comando de voz oculto para impressionar na apresentação
             if (textoCompletoAtual.toLowerCase().includes('vox apague o texto')) {
                 limparTelaETexto();
                 statusText.innerText = '🧹 Texto apagado via comando de voz!';
                 return;
             }
 
-            atualizarTela(textoCompletoAtual);
+            areaTexto.value = textoCompletoAtual;
         };
 
         recognition.onerror = (event) => {
@@ -71,30 +72,20 @@ if (SpeechRecognition) {
         };
     }
 
-    function atualizarTela(texto) {
-        if (areaTexto.value !== undefined) {
-            areaTexto.value = texto;
-        } else {
-            areaTexto.innerText = texto;
-        }
-    }
-
     function limparTelaETexto() {
         textoAcumulado = ''; 
-        if (areaTexto.value !== undefined) areaTexto.value = '';
-        areaTexto.innerText = '';
-        areaTexto.innerHTML = '';
+        areaTexto.value = '';
     }
 
-    // ⚡ LÓGICA BLINDADA DO BOTÃO GRAVAR/PARAR
+    // ⚡ Lógica de controle do botão Gravar/Parar
     btnGravar.addEventListener('click', () => {
         if (gravando) {
-            ignorarResultados = true; // Corta a escuta imediatamente
+            ignorarResultados = true;
             recognition.stop();
-            statusText.innerText = '🧠 Processando Inteligência Artificial e regras de Português...';
+            statusText.innerText = '🧠 Processando Inteligência Artificial e regras sintáticas...';
             
             setTimeout(async () => {
-                const textoParaProcessar = (areaTexto.value || areaTexto.innerText || '').trim();
+                const textoParaProcessar = areaTexto.value.trim();
                 if (textoParaProcessar !== '') {
                     await orquestradorDeNLP(textoParaProcessar);
                 } else {
@@ -103,9 +94,7 @@ if (SpeechRecognition) {
             }, 300);
 
         } else {
-            // Limpa a tela imediatamente ao começar a gravar de novo
             limparTelaETexto();
-            
             recognition = new SpeechRecognition();
             configurarRecognition();
             
@@ -117,11 +106,11 @@ if (SpeechRecognition) {
         }
     });
 
-    // 🚀 ORQUESTRADOR DE TRIPLA REDUNDÂNCIA (Garante que nunca vai dar erro)
+    // 🚀 ORQUESTRADOR DE TRIPLA REDUNDÂNCIA (À prova de falhas)
     async function orquestradorDeNLP(texto) {
         let textoProcessado = "";
 
-        // TENTATIVA 1: Tenta usar o Back-end da Vercel (Se estiver online)
+        // TENTATIVA 1: Tenta acessar o Back-end da Vercel (Ideal para Produção)
         try {
             const res = await fetch('/api/processar', {
                 method: 'POST',
@@ -131,15 +120,15 @@ if (SpeechRecognition) {
             if (res.ok) {
                 const data = await res.json();
                 textoProcessado = data.resultado;
-                statusText.innerText = '✅ NLP concluído via Servidor! Traduzindo...';
+                statusText.innerText = '✅ NLP concluído via Servidor da Aplicação! Traduzindo...';
             } else {
                 throw new Error("Back-end Vercel indisponível");
             }
         } catch (erroBackend) {
             
-            // TENTATIVA 2: Tenta usar a API do Google direto pelo navegador (Funciona localmente)
+            // TENTATIVA 2: Tenta a API do Google direto pelo navegador (Ideal para testes locais)
             try {
-                console.warn("Servidor Vercel ausente (Testando local?). Chamando Google API direta...");
+                console.warn("Chamando Google API direta via Client-Side...");
                 
                 const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
                 const prompt = `Aja como um revisor gramatical especialista em Processamento de Linguagem Natural da Língua Portuguesa. 
@@ -160,25 +149,25 @@ Texto: "${texto}"`;
                 if (resGoogle.ok) {
                     const dataGoogle = await resGoogle.json();
                     textoProcessado = dataGoogle.candidates[0].content.parts[0].text.trim();
-                    statusText.innerText = '✅ NLP concluído via Inteligência Artificial! Traduzindo...';
+                    statusText.innerText = '✅ NLP concluído via IA Nativa! Traduzindo...';
                 } else {
-                    throw new Error("API do Google bloqueada ou fora do ar.");
+                    throw new Error("API do Google bloqueada.");
                 }
 
             } catch (erroGoogle) {
-                // TENTATIVA 3: Motor de Regras Gramaticais Offline (Prova de falhas)
-                console.warn("Inteligência Artificial inacessível. Usando Regras Gramaticais Offline...");
+                // TENTATIVA 3: Motor de Regras Gramaticais Offline (Sobrevivência)
+                console.warn("Usando Regras Gramaticais Locais...");
                 textoProcessado = aplicarRegrasOffline(texto);
-                statusText.innerText = '✅ NLP Concluído via Regras Locais! Traduzindo...';
+                statusText.innerText = '✅ Análise Concluída via Motor Local! Traduzindo...';
             }
         }
 
-        // Coloca o texto perfeito na tela e chama o VLibras
-        atualizarTela(textoProcessado);
+        // Devolve o texto tratado e chama a automação do VLibras
+        areaTexto.value = textoProcessado;
         forcarTraducaoVlibras();
     }
 
-    // 🛡️ MOTOR DE REGRAS GRAMATICAIS OFFLINE (Plano C)
+    // 🛡️ MOTOR DE REGRAS GRAMATICAIS OFFLINE
     function aplicarRegrasOffline(t) {
         let texto = t.trim().toLowerCase();
         texto = texto.replace(/\b(olá|oi|bom dia|boa tarde|boa noite|nossa)\b\s+/g, "$1, ");
@@ -195,7 +184,7 @@ Texto: "${texto}"`;
     }
 
     function forcarTraducaoVlibras() {
-        const textoLimpio = (areaTexto.value || areaTexto.innerText || '').trim();
+        const textoLimpio = areaTexto.value.trim();
         if (textoLimpio !== '') {
             const botaoVlibras = document.querySelector('[vw-access-button]');
             const janelaVlibras = document.querySelector('[vw-plugin-wrapper]');
@@ -204,15 +193,10 @@ Texto: "${texto}"`;
                 botaoVlibras.click();
             }
 
-            if (typeof areaTexto.select === 'function') areaTexto.select();
-            else {
-                const range = document.createRange();
-                range.selectNodeContents(areaTexto);
-                const selection = window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
-            }
+            // Seleciona o texto dentro do textarea novo
+            areaTexto.select();
             
+            // Dispara os eventos que o VLibras escuta para iniciar a tradução
             setTimeout(() => {
                 areaTexto.dispatchEvent(new Event('input', { bubbles: true }));
                 areaTexto.dispatchEvent(new Event('change', { bubbles: true }));

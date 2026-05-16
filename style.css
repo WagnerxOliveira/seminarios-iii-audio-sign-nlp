@@ -1,32 +1,36 @@
-/* CSS customizado mínimo para garantir a usabilidade */
-
-#texto-transcrito {
-    min-height: 150px;
-    max-height: 300px;
-    overflow-y: auto;
-    background-color: #ffffff;
-    border: 1px solid #ced4da;
-    border-radius: 0.375rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 1rem;
-    line-height: 1.5;
-    color: #212529;
-    cursor: text;
+/* style.css */
+body {
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f8f9fa;
 }
 
-/* Efeito de foco quando o usuário clica para digitar */
-#texto-transcrito:focus {
+/* Estilização da caixa de texto transcrito */
+#texto-transcrito {
+    resize: none;
+    font-size: 1.15rem;
+    line-height: 1.6;
     color: #212529;
-    background-color: #fff;
+    background-color: #ffffff;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* Efeito visual quando a caixa de texto está selecionada */
+#texto-transcrito:focus {
+    outline: none;
     border-color: #86b7fe;
-    outline: 0;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
-/* Placeholder simulado para a div vazia */
-#texto-transcrito:empty:before {
-    content: "O texto falado aparecerá aqui...";
-    color: #6c757d;
-    pointer-events: none;
-    display: block; /* Garante que o placeholder ocupe espaço */
+/* Efeito de clique nos botões (Feedback visual) */
+.btn {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:active {
+    transform: scale(0.96);
+}
+
+/* Garante que o Widget do VLibras fique sempre no topo e não bugue a rolagem */
+[vw] {
+    z-index: 9999 !important;
 }
