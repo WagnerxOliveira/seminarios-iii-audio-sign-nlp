@@ -2,20 +2,19 @@ const btnGravar = document.getElementById('btn-gravar');
 const areaTexto = document.getElementById('texto-transcrito');
 const statusText = document.getElementById('status-gravacao');
 
-// 🔑 CHAVE DE API DO GEMINI
+// 🔑 CHAVE DE API DO GEMINI (Google AI Studio)
 const GEMINI_API_KEY = 'AIzaSyCrh8elS1iSIrdJyoYDBMmvUhKUoq7dMLQ'; 
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 if (SpeechRecognition) {
-    // 🛠️ CORREÇÃO DAQUI: Usa a variável correta mapeada acima
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'pt-BR';
 
     let gravando = false;
-    let textoAcumulado = ''; // Mantém todo o histórico falado para não apagar nada ao pausar
+    let textoAcumulado = ''; 
 
     recognition.onstart = () => {
         gravando = true;
@@ -37,14 +36,13 @@ if (SpeechRecognition) {
             }
         }
 
-        // Se o navegador fechou um bloco de fala, acumulamos ele sem limpar a tela
         if (transcricaoFinalDoBloco !== '') {
             textoAcumulado += ' ' + transcricaoFinalDoBloco;
         }
 
         let textoCompletoAtual = (textoAcumulado + ' ' + transcricaoIntermediaria).trim();
 
-        // 🧠 COMANDO DE VOZ DETECTADO: "Vox, apague o texto"
+        // 🧹 COMANDO DE VOZ DETECTADO: "Vox, apague o texto"
         if (textoCompletoAtual.toLowerCase().includes('vox apague o texto')) {
             textoAcumulado = '';
             areaTexto.innerText = '';
@@ -71,7 +69,7 @@ if (SpeechRecognition) {
         const textoParaProcessar = areaTexto.innerText.trim();
 
         if (textoParaProcessar !== '') {
-            statusText.innerText = '🧠 Processando NLP e pontuação...';
+            statusText.innerText = '🧠 Processando NLP e análise semântica estruturada...';
             await processarTextoComIA(textoParaProcessar);
         } else {
             statusText.innerText = 'Microfone desligado.';
@@ -88,58 +86,64 @@ if (SpeechRecognition) {
         }
     });
 
-    // 🚀 PROCESSAMENTO DE NLP E ALGORITMO DE SEGURANÇA SEMÂNTICA
+    // 🚀 ENGINE DE PROCESSAMENTO DE LINGUAGEM NATURAL (API GEMINI)
     async function processarTextoComIA(texto) {
+        // Endpoint oficial estável para chamadas globais
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-        const prompt = `Atue como um corretor gramatical especialista em transcrição de áudio. Analise a semântica da seguinte frase. Adicione a pontuação correta (vírgulas, pontos finais, pontos de interrogação se for uma pergunta, e pontos de exclamação se houver surpresa/ênfase evidente) e capitalize as letras iniciais. Não altere as palavras, apenas a pontuação e formatação. Retorne APENAS o texto final corrigido, sem aspas e sem explicações: "${texto}"`;
+        
+        // Prompt especialista estruturado com base nas diretrizes gramaticais fornecidas
+        const promptEspecialista = `Aja como um revisor gramatical especialista. Leia o texto de transcrição de áudio abaixo e reescreva-o aplicando a pontuação correta da língua portuguesa. 
+Identifique claramente as frases interrogativas (fazendo perguntas com base nos pronomes, inversões e semântica de questionamento) e as frases declarativas/afirmativas (usando ponto final). 
+Posicione as vírgulas nos locais sintáticos corretos para separar orações, apostos e vocativos, respeitando as pausas lógicas da fala.
+Mantenha rigorosamente o vocabulário original. Não adicione observações, explicações ou aspas no início e fim. Retorne exclusivamente o texto corrigido.
+
+Texto: "${texto}"`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{
+                            text: promptEspecialista
+                        }]
+                    }]
+                })
             });
 
-            if (!response.ok) throw new Error('API Google Restrita');
-
-            const data = await response.json();
-            const textoProcessado = data.candidates[0].content.parts[0].text.trim();
-            
-            areaTexto.innerText = textoProcessado;
-            statusText.innerText = '✅ NLP concluído via API! Traduzindo para LIBRAS...';
-            forcarTraducaoVlibras();
-
-        } catch (error) {
-            console.warn('Executando Motor Léxico Local Avançado:', error);
-            statusText.innerText = '🧠 Processando pontuação através do motor gramatical local...';
-
-            let t = texto.trim();
-
-            // 🛠️ MOTOR DE CONTINGÊNCIA LÉXICA REFINADO E MAPEADO PASSO A PASSO
-            t = t.replace(/\b(olá como você está|ola como voce esta|olá como vc está)\b/gi, 'Olá, como você está?');
-            t = t.replace(/\b(está tudo bem com você|está tudo bem com voce|esta tudo bem com voce|está tudo bem)\b/gi, 'Está tudo bem com você?');
-            t = t.replace(/\b(como vai você|como vai vc|como vai)\b/gi, 'Como vai?');
-            t = t.replace(/\b(está estudando|esta estudando)\b/gi, 'Está estudando?');
-            t = t.replace(/\b(o que você gosta de estudar|o que vc gosta de estudar)\b/gi, 'O que você gosta de estudar?');
-
-            // Garante espaçamento limpo entre as interrogações e quebras de frase
-            t = t.replace(/\s+/g, ' ').trim();
-            
-            // Força letra maiúscula após cada ponto de interrogação ou ponto final
-            t = t.replace(/(?:\?\s*|^)([a-z])/gi, (match, letra) => match.replace(letra, letra.toUpperCase()));
-            
-            // Tratamento final de segurança para limpar espaçamentos antes dos pontos ?
-            t = t.replace(/\s+\?/g, '?').replace(/\?+/g, '?');
-
-            if (!t.endsWith('?') && !t.endsWith('.')) {
-                t += '?';
+            if (!response.ok) {
+                const erroDetalhado = await response.text();
+                throw new Error(`Restrição de gateway/CORS: ${erroDetalhado}`);
             }
 
-            setTimeout(() => {
-                areaTexto.innerText = t;
-                statusText.innerText = '✅ Pontuação e análise sintática concluídas! Traduzindo...';
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                const textoFinalPontuado = data.candidates[0].content.parts[0].text.trim();
+                
+                // Atualiza o DOM com o resultado do processamento cognitivo da IA
+                areaTexto.innerText = textoFinalPontuado;
+                statusText.innerText = '✅ Processamento NLP concluído com sucesso! Traduzindo...';
                 forcarTraducaoVlibras();
-            }, 600);
+            } else {
+                throw new Error('Estrutura de resposta inesperada da API.');
+            }
+
+        } catch (error) {
+            console.error('Falha na comunicação com o provedor de NLP:', error);
+            statusText.innerText = '⚠️ Falha no processamento remoto de IA. Executando normalização básica...';
+            
+            // Tratamento fallback mínimo de concordância local para não quebrar a execução
+            let textoFallback = texto.trim();
+            textoFallback = textoFallback.charAt(0).toUpperCase() + textoFallback.slice(1);
+            if (!textoFallback.endsWith('.') && !textoFallback.endsWith('?')) {
+                textoFallback += '.';
+            }
+            areaTexto.innerText = textoFallback;
+            forcarTraducaoVlibras();
         }
     }
 
