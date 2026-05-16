@@ -1,6 +1,8 @@
-// 🛠️ BACK-END SERVERLESS (api/processar.js) - Padrão CommonJS (À prova de falhas no Vercel)
+// 🛠️ BACK-END AUTÔNOMO (api/processar.js)
+// Este servidor NÃO usa a API do Google. Ele usa regras avançadas de PLN local.
+
 module.exports = async function handler(request, response) {
-    // Cabeçalhos de segurança CORS
+    // Cabeçalhos de segurança (CORS)
     response.setHeader('Access-Control-Allow-Credentials', true);
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -11,7 +13,7 @@ module.exports = async function handler(request, response) {
     }
 
     if (request.method !== 'POST') {
-        return response.status(405).json({ error: 'Método não permitido. Use POST.' });
+        return response.status(405).json({ error: 'Método não permitido.' });
     }
 
     const { texto } = request.body;
@@ -20,41 +22,77 @@ module.exports = async function handler(request, response) {
         return response.status(400).json({ error: 'Texto não fornecido.' });
     }
 
-    // 🔑 CHAVE DA API
-    const GEMINI_API_KEY = 'AIzaSyCrh8elS1iSIrdJyoYDBMmvUhKUoq7dMLQ';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    // Prompt com diretrizes de Tokenização, Sintaxe e Regras de Ouro da Língua Portuguesa
-    const promptEspecialista = `Aja como um revisor gramatical especialista em Processamento de Linguagem Natural. Analise a semântica e a estrutura sintática da transcrição de áudio abaixo.
-Aplique estritamente as regras de pontuação da Língua Portuguesa:
-1. SINAIS DE FIM DE FRASE: Identifique orações interrogativas (perguntas diretas baseadas no contexto de dúvida ou pronomes como quem, onde, quando, qual, por que, como) e aplique o ponto de interrogação (?). Use ponto final (.) para declarações ou afirmações concluídas.
-2. REGRAS DE OURO DA VÍRGULA: Isole vocativos (chamamentos) e apostos (explicações intercaladas). Separe adjuntos adverbiais deslocados. Lembre-se: NUNCA separe o sujeito do predicado por vírgula.
-Mantenha rigorosamente o vocabulário original integralmente. Não adicione notas, explicações ou aspas. Retorne exclusivamente o texto final corrigido com perfeita concordância e coesão.
-
-Texto para correção: "${texto}"`;
-
     try {
-        const googleResponse = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: promptEspecialista }] }] })
-        });
+        // 🧠 MOTOR HEURÍSTICO DE PONTUAÇÃO (PLN Baseado em Regras)
+        let resultadoFinal = aplicarRegrasGramaticais(texto);
 
-        if (!googleResponse.ok) {
-            throw new Error('Falha na resposta do servidor do Google Gemini.');
-        }
-
-        const data = await googleResponse.json();
-        
-        if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
-            const textoProcessado = data.candidates[0].content.parts[0].text.trim();
-            return response.status(200).json({ resultado: textoProcessado });
-        } else {
-            throw new Error('Estrutura de resposta inesperada da API.');
-        }
+        // Devolve o texto processado pelo próprio servidor
+        return response.status(200).json({ resultado: resultadoFinal });
 
     } catch (error) {
-        console.error('Erro no servidor interno de IA:', error);
-        return response.status(500).json({ error: 'Erro interno ao processar o Processamento de Linguagem Natural.' });
+        console.error('Erro no motor sintático:', error);
+        return response.status(500).json({ error: 'Erro ao processar o texto.' });
     }
 };
+
+// ============================================================================
+// 📚 FUNÇÕES DO MOTOR DE LINGUAGEM NATURAL (LÍNGUA PORTUGUESA)
+// ============================================================================
+
+function aplicarRegrasGramaticais(textoBruto) {
+    let texto = textoBruto.trim().toLowerCase();
+
+    // 1. ISOLAMENTO DE VOCATIVOS E SAUDAÇÕES COM VÍRGULA
+    // Ex: "olá como vai" -> "olá, como vai"
+    texto = texto.replace(/\b(olá|oi|e aí|bom dia|boa tarde|boa noite|nossa|uau|poxa)\b\s+/g, "$1, ");
+
+    // 2. VÍRGULAS ANTES DE CONJUNÇÕES ADVERSATIVAS E EXPLICATIVAS
+    // Ex: "eu fui mas não gostei" -> "eu fui, mas não gostei"
+    texto = texto.replace(/\s+\b(mas|porém|contudo|entretanto|pois|então|porque|logo|portanto)\b/g, ", $1");
+
+    // 3. IDENTIFICAÇÃO DE PERGUNTAS (ESTRUTURAS INTERROGATIVAS)
+    // Procuramos por blocos que indicam perguntas claras e fatiamos a frase.
+    const padroesPerguntas = [
+        /(como\s+você\s+está|tudo\s+bem(\s+com\s+você)?|como\s+vai(\s+você)?)/g,
+        /(o\s+que\s+você\s+(gosta|faz|quer|acha|pensa))/g,
+        /(\b(quem|onde|quando|qual|quais|por\s+que|cadê)\b.*?)(?=\s+(?:e|mas|ou|porque)|$)/g,
+        /(está\s+(estudando|fazendo|indo|bem|pronto))/g
+    ];
+
+    padroesPerguntas.forEach(padrao => {
+        texto = texto.replace(padrao, (match) => {
+            return match.trim() + "? ";
+        });
+    });
+
+    // Limpeza de espaços gerados pelos replaces
+    texto = texto.replace(/\s+/g, ' ').trim();
+
+    // 4. IDENTIFICAÇÃO DE FIM DE DECLARAÇÃO
+    // Se a frase não foi marcada como pergunta no final, é uma afirmação.
+    if (!texto.endsWith('?')) {
+        texto += '.';
+    }
+
+    // 5. LIMPEZA DE PONTUAÇÃO DUPLICADA OU MAL FORMADA
+    texto = texto.replace(/\s+\?/g, '?');
+    texto = texto.replace(/\s+\./g, '.');
+    texto = texto.replace(/\s+,/g, ',');
+    texto = texto.replace(/,\s*,/g, ',');
+    texto = texto.replace(/,\s*\?/g, '?');
+    texto = texto.replace(/,\s*\./g, '.');
+    texto = texto.replace(/\?\s*\?/g, '?');
+    texto = texto.replace(/\.\s*\./g, '.');
+
+    // 6. CAPITALIZAÇÃO (Iniciais maiúsculas após pontuação e no início)
+    // Converte a primeira letra do texto e a primeira letra após cada '.' ou '?'
+    let textoCapitalizado = texto.replace(/(?:^|[.?]\s*)([a-zçáéíóúâêôãõ])/g, function(match) {
+        return match.toUpperCase();
+    });
+
+    // 7. CORREÇÃO DE NOMES PRÓPRIOS ESPECÍFICOS (NER - Named Entity Recognition básico)
+    textoCapitalizado = textoCapitalizado.replace(/\bpuc minas\b/gi, 'PUC Minas');
+    textoCapitalizado = textoCapitalizado.replace(/\bbrasil\b/gi, 'Brasil');
+
+    return textoCapitalizado.trim();
+}
