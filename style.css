@@ -1,10 +1,8 @@
-/* style.css */
 body {
     font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background-color: #f8f9fa;
 }
 
-/* Estilização da caixa de texto transcrito */
 #texto-transcrito {
     resize: none;
     font-size: 1.15rem;
@@ -14,14 +12,12 @@ body {
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-/* Efeito visual quando a caixa de texto está selecionada */
 #texto-transcrito:focus {
     outline: none;
     border-color: #86b7fe;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
 }
 
-/* Efeito de clique nos botões (Feedback visual) */
 .btn {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -30,7 +26,6 @@ body {
     transform: scale(0.96);
 }
 
-/* Garante que o Widget do VLibras fique sempre no topo e não bugue a rolagem */
 [vw] {
     z-index: 9999 !important;
 }
