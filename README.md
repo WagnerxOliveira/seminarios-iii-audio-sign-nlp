@@ -1,37 +1,38 @@
-# Sistema de Transcrição Acessível com NLP e LIBRAS
+# 🎙️ VoxScript: Sistema de Transcrição Acessível
 
-Análise, projeto e desenvolvimento de um Produto Mínimo Viável (MVP) focado em acessibilidade comunicativa, desenvolvido para a disciplina de **Seminários III** no curso de **Ciência da Computação — PUC Minas (Campus Poços de Caldas)**.
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=for-the-badge&logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=for-the-badge&logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)
+![Node.js](https://img.shields.io/badge/Node.js-43853D?style=for-the-badge&logo=node.js&logoColor=white)
+![Vercel](https://img.shields.io/badge/Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 
----
+O **VoxScript** é um Produto Mínimo Viável (MVP) focado em acessibilidade e Processamento de Linguagem Natural (PLN). A aplicação realiza a captura de voz em tempo real, aplica regras gramaticais e de pontuação de forma automatizada via Inteligência Artificial, e converte o resultado final em Língua Brasileira de Sinais (LIBRAS) através da integração com o widget oficial do Governo Federal.
 
-## 🚀 Sobre o Projeto
+## ✨ Funcionalidades Principais
 
-O sistema resolve um problema clássico de acessibilidade digital: a conversão de fala em tempo real para texto e sua respectiva tradução para a Língua Brasileira de Sinais (LIBRAS). 
+- **Reconhecimento de Voz Contínuo:** Captura de áudio em tempo real utilizando a `Web Speech API`.
+- **Tradução Automática para LIBRAS:** Integração responsiva com o avatar 3D do `VLibras`.
+- **Comandos de Voz Inteligentes:** Sistema hands-free. (Ex: dizer *"Vox, apague o texto"* limpa o buffer e a interface automaticamente).
+- **Processamento de Linguagem Natural (PLN):** O texto bruto capturado passa por um motor cognitivo que analisa a semântica e a sintaxe, aplicando pontos, vírgulas e letras maiúsculas de acordo com o contexto da frase.
 
-O grande diferencial técnico deste MVP é a **integração de Processamento de Linguagem Natural (NLP)**. Tradicionalmente, APIs de conversão de voz para texto (Speech-to-Text) capturam palavras de forma contínua, sem pontuação ou análise gramatical, gerando textos confusos para leitura e de difícil interpretação para ferramentas de tradução mecânica. Este software captura a voz, processa o contexto semântico através de uma rede neural avançada para aplicar a pontuação correta da língua portuguesa e, em seguida, automatiza a tradução visual.
+## 🏗️ Arquitetura de Tripla Redundância (Anti-Falhas)
 
----
+Para garantir alta disponibilidade e resiliência, o sistema de pontuação inteligente foi projetado com três camadas de *fallback*:
 
-## 🛠️ Arquitetura e Engenharia de Solução (Pivô Estratégico)
+1. **Camada 1 (Produção): Back-end Serverless (Vercel Functions).** O texto é enviado a uma rota isolada em Node.js (`/api/processar`), contornando bloqueios de CORS e acionando o modelo Gemini (Google AI Studio) com um *prompt* especialista em PLN.
+2. **Camada 2 (Desenvolvimento/Contingência 1): Chamada Client-Side.** Caso o servidor da Vercel falhe, o front-end assume a requisição e tenta contato direto com a API de Inteligência Artificial.
+3. **Camada 3 (Offline/Contingência 2): Motor Heurístico Local.** Em caso de queda total de rede ou indisponibilidade da API, um algoritmo nativo em JavaScript assume a análise léxica (POS Tagging simulado), isolando vocativos, adjuntos e identificando pronomes interrogativos para pontuar o texto localmente antes de enviá-lo ao VLibras.
 
-O planejamento inicial do projeto previa uma infraestrutura complexa com *back-end* baseado em Firebase e consumo direto da API Google Cloud Speech-to-Text. Visando a otimização do tempo de entrega, estabilidade e eliminação de latência de rede desnecessária para o usuário final, a arquitetura foi reformulada para uma abordagem moderna de **Edge/Client-Side Execution**:
+## 💻 Tecnologias Utilizadas
 
-1. **Captura e Transcrição de Áudio (Client-Side):** Executada nativamente no motor do navegador utilizando a **Web Speech API**. Isso permite o processamento imediato do áudio local sem gargalos de upload de arquivos de voz.
-2. **Camada de NLP (Inteligência Artificial):** O texto bruto transcrito é enviado assincronamente (`fetch` API) para os modelos generativos da **Gemini API** via *Google AI Studio*. A rede neural analisa o contexto semântico do texto bruto, inferindo e aplicando:
-   * Pontos de interrogação baseados em estruturas de perguntas.
-   * Pontos de exclamação baseados em expressões de ênfase ou surpresa.
-   * Ajuste fino de vírgulas, pontos finais e capitalização de letras iniciais.
-3. **Mecanismo de Acessibilidade (LIBRAS):** Implementação e automação do plugin oficial do **VLibras**.
-4. **Automação de Fluxo:** Implementação de manipulação de DOM e `Selection Range` no JavaScript para simular interações de usuário. Assim que a IA conclui a pontuação, o sistema força o destaque do texto e ativa os gatilhos de animação do avatar tridimensional instantaneamente.
+- **Front-end:** HTML5, CSS3, Bootstrap 5, JavaScript Vanilla (DOM Manipulation & Web APIs).
+- **Back-end:** Node.js operando em arquitetura Serverless (Vercel).
+- **Inteligência Artificial:** Gemini 1.5 Flash API (Google).
+- **Acessibilidade:** VLibras (LAPI/UFPB).
+- **Deploy:** Vercel (CI/CD integrado com GitHub).
 
----
+## 🚀 Como Executar o Projeto
 
-## 📦 Estrutura de Arquivos
-
-O projeto adota uma estrutura limpa e modular de Front-end estático de alta performance:
-
-```text
-├── index.html       # Estrutura semântica, importação do Bootstrap e do Widget VLibras.
-├── style.css        # Estilização customizada e comportamento de inputs editáveis.
-├── app.js           # Core lógico (Web Speech API + Chamadas assíncronas de NLP + Automação VLibras).
-└── README.md        # Documentação técnica e acadêmica do projeto.
+1. Clone este repositório:
+   ```bash
+   git clone
